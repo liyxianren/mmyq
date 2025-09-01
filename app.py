@@ -677,6 +677,12 @@ def create_app(config_name=None):
     def favicon():
         return '', 204
     
+    # Legacy redirect for old static/uploads URLs
+    @app.route('/static/uploads/<filename>')
+    def legacy_uploaded_file_redirect(filename):
+        """重定向旧的静态文件URL到新的上传路由"""
+        return redirect(url_for('uploaded_file', filename=filename), code=301)
+    
     # Image serving route for persistent storage
     @app.route('/uploads/<filename>')
     def uploaded_file(filename):
