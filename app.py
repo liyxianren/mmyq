@@ -791,6 +791,58 @@ def create_app(config_name=None):
         except Exception as e:
             return jsonify({'success': False, 'message': f'服务器错误: {str(e)}'}), 500
     
+    # 数据清理管理接口
+    @app.route('/admin/data-cleanup')
+    def admin_data_cleanup():
+        """数据清理管理页面"""
+        if 'admin_id' not in session:
+            return redirect(url_for('admin_login'))
+        
+        from utils.cleanup import DataCleanup
+        
+        # 获取清理统计信息
+        stats = DataCleanup.get_cleanup_stats()
+        
+        return render_template('admin/data_cleanup.html', stats=stats)
+    
+    @app.route('/admin/cleanup-preview', methods=['POST'])
+    def admin_cleanup_preview():
+        """预览清理操作"""
+        if 'admin_id' not in session:
+            return jsonify({'success': False, 'message': '未授权'}), 401
+        
+        try:
+            data = request.get_json()
+            days_old = int(data.get('days_old', 3))
+            
+            from utils.cleanup import DataCleanup
+            
+            # 执行测试运行
+            result = DataCleanup.cleanup_expired_data(days_old=days_old, dry_run=True)
+            return jsonify(result)
+            
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'预览失败: {str(e)}'}), 500
+    
+    @app.route('/admin/cleanup-execute', methods=['POST'])
+    def admin_cleanup_execute():
+        """执行清理操作"""
+        if 'admin_id' not in session:
+            return jsonify({'success': False, 'message': '未授权'}), 401
+        
+        try:
+            data = request.get_json()
+            days_old = int(data.get('days_old', 3))
+            
+            from utils.cleanup import DataCleanup
+            
+            # 执行实际清理
+            result = DataCleanup.cleanup_expired_data(days_old=days_old, dry_run=False)
+            return jsonify(result)
+            
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'清理执行失败: {str(e)}'}), 500
+    
     return app
 
 if __name__ == '__main__':

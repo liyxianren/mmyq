@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}数据清理管理 - 群组场地报名系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- 页面头部 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2><i class="fas fa-broom text-warning me-2"></i>数据清理管理</h2>
+                <p class="text-muted mb-0">管理和清理过期的场地数据及图片文件</p>
+            </div>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>返回面板
+            </a>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="row mb-4">
+            {% for key, stat in stats.items() %}
+            <div class="col-md-3">
+                <div class="card modern-card">
+                    <div class="card-body text-center">
+                        {% set days = key.split('_')[0] %}
+                        <h5 class="card-title">{{ days }}天前数据</h5>
+                        <div class="row">
+                            <div class="col-6">
+                                <h3 class="text-primary">{{ stat.submissions }}</h3>
+                                <small class="text-muted">提交记录</small>
+                            </div>
+                            <div class="col-6">
+                                <h3 class="text-info">{{ stat.images }}</h3>
+                                <small class="text-muted">图片文件</small>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-2">截至 {{ stat.cutoff_date }}</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- 清理操作 -->
+        <div class="card modern-card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>数据清理操作
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>注意：</strong>数据清理操作不可逆，请谨慎操作。建议先进行预览确认要清理的数据。
+                </div>
+
+                <form id="cleanupForm" class="modern-form">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-floating mb-3">
+                                <select class="form-select" id="daysOld" name="days_old" required>
+                                    <option value="1">1天前</option>
+                                    <option value="3" selected>3天前</option>
+                                    <option value="7">7天前</option>
+                                    <option value="15">15天前</option>
+                                    <option value="30">30天前</option>
+                                </select>
+                                <label for="daysOld">清理时间范围</label>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="btn-group" role="group">
+                                <button type="button" id="previewBtn" class="btn btn-outline-info btn-lg">
+                                    <i class="fas fa-eye me-2"></i>预览清理
+                                </button>
+                                <button type="button" id="executeBtn" class="btn btn-danger btn-lg" disabled>
+                                    <i class="fas fa-trash-alt me-2"></i>执行清理
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 操作结果 -->
+        <div id="operationResult" style="display: none;"></div>
+
+        <!-- 预览结果 -->
+        <div id="previewResult" class="card modern-card mt-4" style="display: none;">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-search me-2"></i>清理预览结果
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="previewContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.cleanup-item {
+    border-left: 4px solid var(--primary-500);
+    padding: 12px;
+    margin-bottom: 8px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+}
+
+.cleanup-item h6 {
+    color: var(--primary-700);
+    margin-bottom: 8px;
+}
+
+.cleanup-item .cleanup-meta {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.cleanup-screenshots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.cleanup-screenshots .screenshot-badge {
+    background: var(--warning-100);
+    color: var(--warning-700);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+}
+
+.stats-summary {
+    background: var(--success-50);
+    border: 1px solid var(--success-200);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.stats-summary h5 {
+    color: var(--success-700);
+    margin-bottom: 12px;
+}
+</style>
+
+<script>
+let previewData = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('previewBtn').addEventListener('click', previewCleanup);
+    document.getElementById('executeBtn').addEventListener('click', executeCleanup);
+});
+
+function previewCleanup() {
+    const daysOld = document.getElementById('daysOld').value;
+    const previewBtn = document.getElementById('previewBtn');
+    const executeBtn = document.getElementById('executeBtn');
+    
+    const originalText = previewBtn.innerHTML;
+    previewBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>加载预览...';
+    previewBtn.disabled = true;
+    executeBtn.disabled = true;
+    
+    fetch('/admin/cleanup-preview', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ days_old: parseInt(daysOld) })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayPreview(data);
+            previewData = data;
+            executeBtn.disabled = false;
+        } else {
+            showResult(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showResult('网络错误: ' + error.message, 'error');
+    })
+    .finally(() => {
+        previewBtn.innerHTML = originalText;
+        previewBtn.disabled = false;
+    });
+}
+
+function executeCleanup() {
+    if (!previewData) {
+        showResult('请先进行预览操作', 'warning');
+        return;
+    }
+    
+    if (!confirm('确定要执行数据清理吗？此操作不可逆！')) {
+        return;
+    }
+    
+    const daysOld = document.getElementById('daysOld').value;
+    const executeBtn = document.getElementById('executeBtn');
+    
+    const originalText = executeBtn.innerHTML;
+    executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>执行中...';
+    executeBtn.disabled = true;
+    
+    fetch('/admin/cleanup-execute', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ days_old: parseInt(daysOld) })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showResult(data.message, 'success');
+            // 清理完成后刷新页面统计
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        } else {
+            showResult(data.message + (data.stats && data.stats.errors ? '\n错误详情: ' + data.stats.errors.join(', ') : ''), 'error');
+        }
+    })
+    .catch(error => {
+        showResult('网络错误: ' + error.message, 'error');
+    })
+    .finally(() => {
+        executeBtn.innerHTML = originalText;
+        previewData = null;
+    });
+}
+
+function displayPreview(data) {
+    const previewResult = document.getElementById('previewResult');
+    const previewContent = document.getElementById('previewContent');
+    
+    if (data.stats.submissions_to_delete === 0) {
+        previewContent.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                <h5>没有需要清理的数据</h5>
+                <p class="text-muted">当前时间范围内没有过期的场地数据</p>
+            </div>
+        `;
+    } else {
+        let html = `
+            <div class="stats-summary">
+                <h5><i class="fas fa-chart-bar me-2"></i>清理统计</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>将删除 ${data.stats.submissions_to_delete} 个提交记录</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>将删除 ${data.stats.images_to_delete} 个图片文件</strong>
+                    </div>
+                </div>
+            </div>
+            
+            <h6><i class="fas fa-list me-2"></i>待清理的提交记录：</h6>
+        `;
+        
+        data.stats.expired_submissions.forEach(submission => {
+            html += `
+                <div class="cleanup-item">
+                    <h6>${submission.registration_name}</h6>
+                    <div class="cleanup-meta">
+                        日期: ${submission.venue_date} | 提交ID: ${submission.submission_id}
+                    </div>
+                    ${submission.screenshots && submission.screenshots.length > 0 ? `
+                    <div class="cleanup-screenshots">
+                        ${submission.screenshots.map(s => `<span class="screenshot-badge">${s}</span>`).join('')}
+                    </div>
+                    ` : '<small class="text-muted">无图片文件</small>'}
+                </div>
+            `;
+        });
+        
+        previewContent.innerHTML = html;
+    }
+    
+    previewResult.style.display = 'block';
+    previewResult.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function showResult(message, type) {
+    const resultDiv = document.getElementById('operationResult');
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'warning' ? 'alert-warning' : 'alert-danger';
+    const icon = type === 'success' ? 'fa-check-circle' : 
+                 type === 'warning' ? 'fa-exclamation-triangle' : 'fa-times-circle';
+    
+    resultDiv.innerHTML = `
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            <i class="fas ${icon} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    resultDiv.style.display = 'block';
+    
+    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+</script>
+{% endblock %}
