@@ -45,16 +45,7 @@ def create_app(config_name=None):
     @app.route('/')
     def index():
         if 'user_id' in session:
-            # 验证session中的user_id是否有效
-            from utils.database import execute_query
-            user_exists = execute_query('SELECT id FROM users WHERE id = %s', (session['user_id'],), fetch='one')
-            if user_exists:
-                return redirect(url_for('venue_form'))
-            else:
-                # session无效，清除并跳转到登录页
-                session.clear()
-                flash('会话已过期，请重新登录', 'warning')
-                return redirect(url_for('login'))
+            return redirect(url_for('venue_form'))
         return render_template('index.html')
     
     @app.route('/register', methods=['GET', 'POST'])
@@ -131,13 +122,14 @@ def create_app(config_name=None):
         if 'user_id' not in session:
             return redirect(url_for('login'))
         
-        # 验证session中的user_id是否有效
-        from utils.database import execute_query
-        user_exists = execute_query('SELECT id FROM users WHERE id = %s', (session['user_id'],), fetch='one')
-        if not user_exists:
-            session.clear()
-            flash('会话已过期，请重新登录', 'warning')
-            return redirect(url_for('login'))
+        # 只在POST请求时验证用户是否存在
+        if request.method == 'POST':
+            from utils.database import execute_query
+            user_exists = execute_query('SELECT id FROM users WHERE id = %s', (session['user_id'],), fetch='one')
+            if not user_exists:
+                session.clear()
+                flash('会话已过期，请重新登录', 'warning')
+                return redirect(url_for('login'))
         
         if request.method == 'POST':
             venue_date = request.form.get('venue_date')
@@ -671,6 +663,116 @@ def create_app(config_name=None):
                 'user_id': venue_info[8]
             }
         })
+    
+    # Favicon route
+    @app.route('/favicon.ico')
+    def favicon():
+        return '', 204
+    
+    # 新的场地交换API
+    @app.route('/admin/venue-exchange-data')
+    def admin_venue_exchange_data():
+        if 'admin_id' not in session:
+            return jsonify({'success': False, 'message': '未授权'}), 401
+        
+        date = request.args.get('date')
+        if not date:
+            return jsonify({'success': False, 'message': '日期参数必需'}), 400
+        
+        try:
+            from datetime import datetime
+            date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'success': False, 'message': '日期格式无效'}), 400
+        
+        # 查询指定日期的所有场地（与场地汇总保持一致的筛选条件）
+        query = '''
+            SELECT v.id, v.venue_number, v.time_slot, v.plus_one_name,
+                   vs.registration_name, u.group_name, u.group_type
+            FROM venues v
+            JOIN venue_submissions vs ON v.submission_id = vs.id
+            JOIN users u ON vs.user_id = u.id
+            WHERE vs.venue_date = %s 
+                  AND vs.status = 'active' 
+                  AND vs.approval_status = 'approved' 
+                  AND u.status = 'approved'
+            ORDER BY v.venue_number, v.time_slot
+        '''
+        
+        venues_data = execute_query(query, (date_obj,), fetch=True)
+        
+        if venues_data is None:
+            return jsonify({'success': False, 'message': '数据库查询失败'}), 500
+        
+        venues = []
+        time_slots_dict = dict(app.config['TIME_SLOTS'])
+        
+        for venue in venues_data:
+            venues.append({
+                'id': venue[0],
+                'venue_number': venue[1],
+                'time_slot': venue[2],
+                'time_slot_name': time_slots_dict.get(venue[2], venue[2]),
+                'plus_one_name': venue[3],
+                'registration_name': venue[4],
+                'group_name': venue[5],
+                'group_type': venue[6]
+            })
+        
+        return jsonify({'success': True, 'venues': venues})
+    
+    @app.route('/admin/quick-venue-edit', methods=['POST'])
+    def admin_quick_venue_edit():
+        if 'admin_id' not in session:
+            return jsonify({'success': False, 'message': '未授权'}), 401
+        
+        try:
+            data = request.get_json()
+            venue_id = data.get('venue_id')
+            new_venue_number = data.get('new_venue_number')
+            new_time_slot = data.get('new_time_slot')
+            
+            if not all([venue_id, new_venue_number, new_time_slot]):
+                return jsonify({'success': False, 'message': '缺少必要参数'}), 400
+            
+            # 验证场地号
+            if not (1 <= new_venue_number <= 24):
+                return jsonify({'success': False, 'message': '场地号必须在1-24之间'}), 400
+            
+            # 验证时间段
+            time_slots_dict = dict(app.config['TIME_SLOTS'])
+            if new_time_slot not in time_slots_dict:
+                return jsonify({'success': False, 'message': '无效的时间段'}), 400
+            
+            # 检查目标位置是否冲突（同一天同一时间段同一场地号）
+            conflict_check = execute_query('''
+                SELECT v.id FROM venues v
+                JOIN venue_submissions vs ON v.submission_id = vs.id
+                WHERE v.venue_number = %s AND v.time_slot = %s 
+                AND vs.venue_date = (
+                    SELECT vs2.venue_date FROM venue_submissions vs2
+                    JOIN venues v2 ON vs2.id = v2.submission_id
+                    WHERE v2.id = %s
+                )
+                AND v.id != %s
+                AND vs.approval_status = 'approved'
+            ''', (new_venue_number, new_time_slot, venue_id, venue_id), fetch='one')
+            
+            if conflict_check:
+                return jsonify({'success': False, 'message': f'场地{new_venue_number}号在{time_slots_dict[new_time_slot]}已被占用'}), 400
+            
+            # 更新场地信息
+            result = execute_query('''
+                UPDATE venues SET venue_number = %s, time_slot = %s WHERE id = %s
+            ''', (new_venue_number, new_time_slot, venue_id))
+            
+            if result is None:
+                return jsonify({'success': False, 'message': '数据库更新失败'}), 500
+            
+            return jsonify({'success': True, 'message': '场地信息更新成功'})
+            
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'服务器错误: {str(e)}'}), 500
     
     return app
 

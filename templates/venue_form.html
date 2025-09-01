@@ -22,7 +22,7 @@
                         <div class="col-md-6">
                             <div class="form-floating mb-4">
                                 <input type="date" class="form-control" id="venue_date" name="venue_date" 
-                                       value="{{ default_date }}" placeholder="" required onchange="updateAllVenueAvailability()">
+                                       value="{{ default_date }}" placeholder="" required onchange="updateVenueAvailability()">
                                 <label for="venue_date" class="required">场地日期</label>
                             </div>
                         </div>
@@ -240,5 +240,21 @@ document.getElementById('venueForm').addEventListener('submit', function(e) {
         return false;
     }
 });
+
+// 日期切换时更新场地可用性
+function updateVenueAvailability() {
+    const selectedDate = document.getElementById('venue_date').value;
+    if (!selectedDate) return;
+    
+    // 这里可以添加根据日期更新场地可用性的逻辑
+    console.log('Selected date:', selectedDate);
+    
+    // 如果需要从服务器获取场地可用性数据，可以使用AJAX
+    // fetch('/api/venue-availability?date=' + selectedDate)
+    //     .then(response => response.json())
+    //     .then(data => {
+    //         // 更新场地选项
+    //     });
+}
 </script>
 {% endblock %}

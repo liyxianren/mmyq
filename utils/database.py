@@ -11,7 +11,11 @@ def get_db():
                 password=current_app.config['MYSQL_PASSWORD'],
                 database=current_app.config['MYSQL_DB'],
                 port=current_app.config['MYSQL_PORT'],
-                charset='utf8mb4'
+                charset='utf8mb4',
+                autocommit=False,
+                connect_timeout=5,
+                read_timeout=10,
+                write_timeout=10
             )
         except pymysql.Error as e:
             print(f"Database connection error: {e}", file=sys.stderr)
