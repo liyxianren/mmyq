@@ -1,0 +1,8 @@
+{
+  "build_command": "pip install -r requirements.txt",
+  "start_command": "python app.py",
+  "environment": {
+    "PYTHON_VERSION": "3.11",
+    "FLASK_ENV": "production"
+  }
+}

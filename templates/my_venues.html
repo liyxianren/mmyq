@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}我的场地 - 群组场地报名系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>我的场地</h2>
+            <a href="{{ url_for('venue_form') }}" class="btn btn-primary">报名新场地</a>
+        </div>
+
+        {% if venue_submissions %}
+            <div class="row">
+                {% for submission in venue_submissions %}
+                    <div class="col-lg-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-1">{{ submission.venue_date|date_format }}</h5>
+                                    <p class="mb-0 text-muted">
+                                        {% set time_slot_names = [] %}
+                                        {% for time_slot in submission.get_time_slots() %}
+                                            {% set _ = time_slot_names.append(dict(time_slots)[time_slot]) %}
+                                        {% endfor %}
+                                        {{ time_slot_names|join('、') }}
+                                        {% if submission.is_free_submission %}
+                                            <span class="badge bg-success ms-2">免单</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <span class="badge bg-primary">{{ submission.get_venue_count() }}个场地</span>
+                            </div>
+                            <div class="card-body">
+                                <!-- Venue Details -->
+                                <div class="mb-3">
+                                    <strong>场地详情：</strong>
+                                    <div class="mt-2">
+                                        {% for venue in submission.venues|sort(attribute='venue_number') %}
+                                            <div class="venue-item mb-2">
+                                                <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="badge bg-secondary me-2">{{ venue.venue_number }}</span>
+                                                        <small class="text-muted">{{ dict(time_slots)[venue.time_slot] }}</small>
+                                                        {% if venue.plus_one_name %}
+                                                            <small class="text-info ms-2">+{{ venue.plus_one_name }}</small>
+                                                        {% endif %}
+                                                    </div>
+                                                    {% if venue.venue_screenshot %}
+                                                        <button class="btn btn-outline-primary btn-sm" 
+                                                                onclick="showScreenshot('{{ url_for('static', filename='uploads/' + venue.venue_screenshot) }}', {{ venue.venue_number }})">
+                                                            <i class="fas fa-image"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+
+                                <!-- Registration Info -->
+                                <div class="mb-3">
+                                    <p class="mb-1">
+                                        <strong>报名名称：</strong> {{ submission.registration_name }}
+                                    </p>
+                                    {% set plus_one_count = submission.get_total_plus_ones() %}
+                                    {% if plus_one_count > 0 %}
+                                        <p class="mb-1">
+                                            <strong>同伴人数：</strong> {{ plus_one_count }}人
+                                        </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <small class="text-muted">
+                                    提交时间：{{ submission.upload_time|datetime }}
+                                    {% if submission.is_multi_venue() %}
+                                        | 多场地报名
+                                    {% endif %}
+                                    {% if submission.get_time_slots()|length > 1 %}
+                                        | 混合时间段
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <div class="alert alert-info">
+                    <h4>还没有报名任何场地</h4>
+                    <p>点击"报名新场地"按钮开始您的第一次场地报名。</p>
+                    <a href="{{ url_for('venue_form') }}" class="btn btn-primary">立即报名</a>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- 场地使用说明 -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6>📋 使用说明</h6>
+                        <ul class="mb-0 small">
+                            <li><strong>免单规则：</strong>贡献 {{ config.FREE_VENUE_COUNT }} 个或以上场地将自动标记为免单</li>
+                            <li><strong>时间段：</strong>{{ time_slots|map('last')|join('、') }}</li>
+                            <li><strong>混合时间段：</strong>每个场地可以选择不同的时间段</li>
+                            <li><strong>+1同伴：</strong>每个场地可以单独带一位同伴</li>
+                            <li><strong>截图查看：</strong>点击图片按钮可查看场地截图</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 截图查看模态框 -->
+<div class="modal fade" id="screenshotModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="screenshotTitle">场地截图</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="screenshotImg" src="" class="img-fluid" alt="场地截图">
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.venue-thumbnail {
+    height: 80px;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.venue-thumbnail:hover {
+    transform: scale(1.05);
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+.card-footer {
+    background-color: rgba(0,0,0,0.03);
+}
+</style>
+
+<script>
+function showScreenshot(imageSrc, venueNumber) {
+    document.getElementById('screenshotImg').src = imageSrc;
+    document.getElementById('screenshotTitle').textContent = `场地 ${venueNumber} 截图`;
+    const modal = new bootstrap.Modal(document.getElementById('screenshotModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}待审核场地 - 群组场地报名系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>待审核场地提交</h2>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">返回面板</a>
+        </div>
+
+        {% if pending_submissions %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                <strong>提示：</strong>这些是晚上10点后提交的场地，需要管理员审核后才会在统计页面显示。
+            </div>
+
+            {% for submission in pending_submissions %}
+                <div class="card mb-4 border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-0">{{ submission.registration_name }}</h5>
+                                <small>{{ submission.group_name }} ({{ submission.group_type }}) | 提交时间: {{ submission.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                            </div>
+                            <div>
+                                <span class="badge bg-secondary">{{ submission.venue_date.strftime('%Y年%m月%d日') }}</span>
+                                <span class="badge bg-primary">{{ submission.venues|length }}个场地</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr class="table-dark">
+                                        <th class="text-white">场地</th>
+                                        <th class="text-white">时间段</th>
+                                        <th class="text-white">+1</th>
+                                        <th class="text-white">截图</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for venue in submission.venues %}
+                                        <tr>
+                                            <td><span class="badge bg-primary">{{ venue.venue_number }}</span></td>
+                                            <td>{{ dict(time_slots)[venue.time_slot] }}</td>
+                                            <td>{{ venue.plus_one_name or '-' }}</td>
+                                            <td>
+                                                {% if venue.venue_screenshot %}
+                                                    <button class="btn btn-outline-primary btn-sm" 
+                                                            onclick="showScreenshot('{{ url_for('static', filename='uploads/' + venue.venue_screenshot) }}', {{ venue.venue_number }})">
+                                                        <i class="fas fa-image"></i> 查看
+                                                    </button>
+                                                {% else %}
+                                                    <small class="text-muted">无截图</small>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{{ url_for('admin_delete_submission', submission_id=submission.id) }}" 
+                               class="btn btn-outline-danger btn-sm"
+                               onclick="return confirm('确认删除这个场地提交吗？')">
+                                <i class="fas fa-trash"></i> 删除
+                            </a>
+                            <a href="{{ url_for('admin_approve_submission', submission_id=submission.id) }}" 
+                               class="btn btn-success btn-sm">
+                                <i class="fas fa-check"></i> 审核通过
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                <h4>暂无待审核的场地提交</h4>
+                <p class="text-muted">所有场地提交都已经审核完毕</p>
+                <a href="{{ url_for('admin_venues_summary') }}" class="btn btn-primary">查看场地汇总</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 截图查看模态框 -->
+<div class="modal fade" id="screenshotModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="screenshotTitle">场地截图</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="screenshotImg" src="" class="img-fluid" alt="场地截图">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showScreenshot(imageSrc, venueNumber) {
+    document.getElementById('screenshotImg').src = imageSrc;
+    document.getElementById('screenshotTitle').textContent = `场地 ${venueNumber} 截图`;
+    const modal = new bootstrap.Modal(document.getElementById('screenshotModal'));
+    modal.show();
+}
+</script>
+
+<style>
+.table-dark th {
+    background-color: #212529 !important;
+    color: #ffffff !important;
+    border-color: #32383e !important;
+}
+</style>
+
+<script>
+</script>
+{% endblock %}

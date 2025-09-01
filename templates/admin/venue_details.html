@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}场地详情 - 群组场地报名系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>场地详情</h2>
+            <div>
+                <a href="{{ url_for('admin_venues_summary', date=venue_submission.venue_date) }}" class="btn btn-secondary me-2">返回汇总</a>
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">管理面板</a>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- 基本信息 -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">基本信息</h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">日期：</dt>
+                            <dd class="col-sm-8">{{ venue_submission.venue_date|date_format }}</dd>
+                            
+                            <dt class="col-sm-4">时间段：</dt>
+                            <dd class="col-sm-8">
+                                {% set time_slots_list = venue_submission.get_time_slots() %}
+                                {% if time_slots_list|length > 1 %}
+                                    <span class="badge bg-warning text-dark">混合时段</span><br>
+                                    {% for time_slot in time_slots_list %}
+                                        <small>{{ dict(time_slots)[time_slot] }}</small>
+                                        {% if not loop.last %}<br>{% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    {{ dict(time_slots)[time_slots_list[0]] }}
+                                {% endif %}
+                            </dd>
+                            
+                            <dt class="col-sm-4">报名人：</dt>
+                            <dd class="col-sm-8">{{ venue_submission.registration_name }}</dd>
+                            
+                            {% set plus_one_count = venue_submission.get_total_plus_ones() %}
+                            {% if plus_one_count > 0 %}
+                                <dt class="col-sm-4">+1同伴：</dt>
+                                <dd class="col-sm-8">
+                                    <span class="badge bg-info">{{ plus_one_count }}人</span>
+                                    <small class="text-muted d-block">每个场地可单独设置</small>
+                                </dd>
+                            {% endif %}
+                            
+                            <dt class="col-sm-4">群组：</dt>
+                            <dd class="col-sm-8">
+                                {{ venue_submission.group_name if venue_submission.group_name else '' }} 
+                                <span class="badge bg-secondary">{{ venue_submission.group_type if venue_submission.group_type else '' }}</span>
+                            </dd>
+                            
+                            <dt class="col-sm-4">场地数量：</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-info">{{ venue_submission.get_venue_count() }}个场地</span>
+                                {% if venue_submission.is_free_submission %}
+                                    <span class="badge bg-success ms-1">免单</span>
+                                {% endif %}
+                            </dd>
+                            
+                            <dt class="col-sm-4">提交时间：</dt>
+                            <dd class="col-sm-8">{{ venue_submission.upload_time|datetime }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作区域 -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">管理操作</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-danger" 
+                                    onclick="return confirm('确认删除该场地提交吗？此操作不可恢复！') && (window.location.href='{{ url_for('admin_delete_submission', submission_id=venue_submission.id) }}')">
+                                <i class="fas fa-trash me-2"></i>删除整个提交
+                            </button>
+                            
+                            <a href="{{ url_for('admin_venues_summary', date=venue_submission.venue_date) }}" class="btn btn-info">
+                                <i class="fas fa-calendar me-2"></i>查看当日所有场地
+                            </a>
+                            
+                            <a href="{{ url_for('admin_users') }}?search={{ venue_submission.group_name if venue_submission.group_name else '' }}" class="btn btn-outline-primary">
+                                <i class="fas fa-user me-2"></i>查看用户信息
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 场地详情 -->
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">场地列表 ({{ venue_submission.venues|length }}个)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for venue in venue_submission.venues|sort(attribute='venue_number') %}
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card border-primary h-100">
+                                <div class="card-header bg-light">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">场地 {{ venue.venue_number }}</h6>
+                                        <button class="btn btn-outline-danger btn-sm"
+                                                onclick="deleteVenue({{ venue.id }}, {{ venue.venue_number }})"
+                                                title="删除此场地">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {% if venue.venue_screenshot %}
+                                    <img src="{{ url_for('static', filename='uploads/' + venue.venue_screenshot) }}" 
+                                         class="card-img-top venue-screenshot" 
+                                         alt="场地{{ venue.venue_number }}截图"
+                                         onclick="showScreenshot('{{ url_for('static', filename='uploads/' + venue.venue_screenshot) }}', {{ venue.venue_number }})">
+                                {% else %}
+                                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" 
+                                         style="height: 200px;">
+                                        <div class="text-center text-muted">
+                                            <i class="fas fa-image fa-3x mb-2"></i>
+                                            <p class="mb-0">无截图</p>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                
+                                <div class="card-body">
+                                    <div class="text-center">
+                                        <p class="mb-2">
+                                            <strong>场地编号：</strong>
+                                            <span class="badge bg-primary">{{ venue.venue_number }}</span>
+                                        </p>
+                                        <p class="mb-2">
+                                            <strong>时间段：</strong>
+                                            <span class="badge bg-info">{{ dict(time_slots)[venue.time_slot] }}</span>
+                                        </p>
+                                        {% if venue.plus_one_name %}
+                                        <p class="mb-2">
+                                            <strong>+1同伴：</strong>
+                                            <small class="text-success">{{ venue.plus_one_name }}</small>
+                                        </p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 相关统计 -->
+        {% if venue_submission.venues %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6>📊 统计信息</h6>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h4 class="text-primary">{{ venue_submission.get_venue_count() }}</h4>
+                                    <p class="mb-0">总场地数</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h4 class="text-success">{{ venue_submission.venues|selectattr('venue_screenshot')|list|length }}</h4>
+                                    <p class="mb-0">有截图</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h4 class="text-info">{{ venue_submission.get_total_plus_ones() }}</h4>
+                                    <p class="mb-0">+1同伴</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center">
+                                    <h4 class="text-warning">{{ venue_submission.get_time_slots()|length }}</h4>
+                                    <p class="mb-0">时间段数</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% if venue_submission.get_time_slots()|length > 1 %}
+                        <div class="mt-3">
+                            <h6>🕐 涉及时间段</h6>
+                            <div class="d-flex gap-2 flex-wrap">
+                                {% for time_slot in venue_submission.get_time_slots() %}
+                                    <span class="badge bg-secondary">{{ dict(time_slots)[time_slot] }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 截图查看模态框 -->
+<div class="modal fade" id="screenshotModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="screenshotTitle">场地截图</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="screenshotImg" src="" class="img-fluid" alt="场地截图">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.venue-screenshot {
+    height: 200px;
+    object-fit: cover;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.venue-screenshot:hover {
+    opacity: 0.8;
+}
+
+.card-img-top {
+    border-radius: calc(0.375rem - 1px) calc(0.375rem - 1px) 0 0;
+}
+
+.dl-horizontal dt {
+    text-align: right;
+}
+
+@media (max-width: 768px) {
+    .venue-screenshot {
+        height: 150px;
+    }
+}
+</style>
+
+<script>
+function showScreenshot(imageSrc, venueNumber) {
+    document.getElementById('screenshotImg').src = imageSrc;
+    document.getElementById('screenshotTitle').textContent = `场地 ${venueNumber} 截图`;
+    const modal = new bootstrap.Modal(document.getElementById('screenshotModal'));
+    modal.show();
+}
+
+function deleteVenue(venueId, venueNumber) {
+    if (confirm(`确认删除场地 ${venueNumber} 吗？此操作不可恢复！`)) {
+        window.location.href = `{{ url_for('admin_delete_venue', venue_id=0) }}`.replace('0', venueId);
+    }
+}
+</script>
+{% endblock %}

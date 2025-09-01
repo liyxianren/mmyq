@@ -1,0 +1,459 @@
+{% extends "base.html" %}
+
+{% block title %}场地汇总 - 群组场地报名系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>场地汇总</h2>
+            <div>
+                {% if pending_count > 0 %}
+                    <a href="{{ url_for('admin_pending_submissions') }}" class="btn btn-warning me-2">
+                        <i class="fas fa-clock"></i> 待审核场地 <span class="badge bg-dark">{{ pending_count }}</span>
+                    </a>
+                {% endif %}
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">返回面板</a>
+            </div>
+        </div>
+
+        <!-- 日期选择 -->
+        <div class="card modern-card mb-4">
+            <div class="card-header text-center py-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-calendar-alt text-primary me-2"></i>日期选择器
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center g-3">
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            <input type="date" class="form-control" id="dateSelect" 
+                                   value="{{ selected_date }}" placeholder="" onchange="changeDate()">
+                            <label for="dateSelect">选择查看日期</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex gap-2 justify-content-center">
+                            <button class="btn btn-outline-primary btn-sm" onclick="setToday()">
+                                <i class="fas fa-calendar-day me-1"></i>今天
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="setPreviousDay()">
+                                <i class="fas fa-chevron-left me-1"></i>昨天
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" onclick="setTomorrow()">
+                                <i class="fas fa-chevron-right me-1"></i>明天
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center text-md-end">
+                        <div class="badge bg-primary fs-6 py-2 px-3">
+                            <i class="fas fa-calendar me-2"></i>{{ selected_date|date_format }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计概览 -->
+        <div class="row mb-4 g-4">
+            {% set total_venues = summary.values() | map(attribute='count') | sum %}
+            {% set total_plus_ones = 0 %}
+            {% for slot_data in summary.values() %}
+                {% for venue in slot_data.venues %}
+                    {% if venue.plus_one_name %}
+                        {% set total_plus_ones = total_plus_ones + 1 %}
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+            
+            <div class="col-md-6">
+                <div class="card stats-card bg-primary animate-fadeIn">
+                    <div class="card-body text-center">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h2 class="mb-0 fw-bold">{{ total_venues }}</h2>
+                                <p class="mb-0 opacity-75">总场地数</p>
+                            </div>
+                            <div>
+                                <i class="fas fa-map-marker-alt fa-3x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card stats-card bg-secondary animate-fadeIn">
+                    <div class="card-body text-center">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h2 class="mb-0 fw-bold">{{ total_plus_ones }}</h2>
+                                <p class="mb-0 opacity-75">带+1人数</p>
+                            </div>
+                            <div>
+                                <i class="fas fa-user-plus fa-3x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 时间段概览和详细信息合并展示 -->
+        {% for slot_key, slot_data in summary.items() %}
+            <div class="card mb-4 {{ 'border-success' if slot_data.count > 0 else 'border-secondary' }}">
+                <div class="card-header bg-{{ 'success' if slot_data.count > 0 else 'secondary' }} text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">{{ slot_data.name }}</h5>
+                        <span class="badge bg-light text-dark">{{ slot_data.count }}个场地</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- 场地网格视图 -->
+                    <div class="venue-grid mb-3">
+                        {% for i in range(1, 25) %}
+                            {% set venue_info = slot_data.venues|selectattr('venue_number', 'equalto', i)|first %}
+                            <div class="venue-cell {{ 'occupied' if venue_info else 'empty' }}"
+                                 {% if venue_info %}
+                                     title="场地{{ i }}: {{ venue_info.registration_name }}{% if venue_info.plus_one_name %} (+{{ venue_info.plus_one_name }}){% endif %} | {{ venue_info.group_name }} ({{ venue_info.group_type }})"
+                                 {% else %}
+                                     title="场地{{ i }}: 空闲"
+                                 {% endif %}>
+                                <span class="venue-number">{{ i }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- 详细信息表格（如果有场地的话直接显示） -->
+                    {% if slot_data.venues %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped table-hover">
+                                <thead>
+                                    <tr class="table-dark">
+                                        <th class="text-white">场地</th>
+                                        <th class="text-white">报名人</th>
+                                        <th class="text-white">+1</th>
+                                        <th class="text-white">群组</th>
+                                        <th class="text-white">截图</th>
+                                        <th class="text-white">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for venue_info in slot_data.venues|sort(attribute='venue_number') %}
+                                        <tr id="venue-row-{{ venue_info.venue_id }}">
+                                            <td>
+                                                <span class="badge bg-primary fs-6">{{ venue_info.venue_number }}</span>
+                                            </td>
+                                            <td>
+                                                <strong>{{ venue_info.registration_name }}</strong>
+                                            </td>
+                                            <td>
+                                                {% if venue_info.plus_one_name %}
+                                                    <span class="text-success">{{ venue_info.plus_one_name }}</span>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div>
+                                                    <small class="fw-bold">{{ venue_info.group_name }}</small><br>
+                                                    <span class="badge bg-secondary">{{ venue_info.group_type }}</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {% if venue_info.screenshot %}
+                                                    <button class="btn btn-outline-primary btn-sm" 
+                                                            onclick="showScreenshot('{{ url_for('static', filename='uploads/' + venue_info.screenshot) }}', {{ venue_info.venue_number }})">
+                                                        <i class="fas fa-image"></i> 查看
+                                                    </button>
+                                                {% else %}
+                                                    <small class="text-muted">无截图</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-danger btn-sm" 
+                                                        onclick="deleteVenue({{ venue_info.venue_id }}, '{{ slot_key }}')"
+                                                        title="删除">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-calendar-times fa-3x mb-3"></i>
+                            <p>该时间段暂无场地报名</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 截图查看模态框 -->
+<div class="modal fade" id="screenshotModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="screenshotTitle">场地截图</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="screenshotImg" src="" class="img-fluid" alt="场地截图">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 成功提示Toast -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1060;">
+    <div id="successToast" class="toast" role="alert">
+        <div class="toast-header bg-success text-white">
+            <i class="fas fa-check-circle me-2"></i>
+            <strong class="me-auto">成功</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="successMessage">
+        </div>
+    </div>
+</div>
+
+<!-- 错误提示Toast -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1060;">
+    <div id="errorToast" class="toast" role="alert">
+        <div class="toast-header bg-danger text-white">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            <strong class="me-auto">错误</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="errorMessage">
+        </div>
+    </div>
+</div>
+
+<style>
+.venue-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 3px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.venue-cell {
+    position: relative;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 35px;
+}
+
+.venue-cell.empty {
+    background-color: #ffffff;
+    color: #6c757d;
+    border-color: #e9ecef;
+}
+
+.venue-cell.empty:hover {
+    background-color: #f8f9fa;
+}
+
+.venue-cell.occupied {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border-color: #bee5eb;
+}
+
+.venue-cell.occupied:hover {
+    background-color: #b8daff;
+    border-color: #86cfda;
+    transform: scale(1.1);
+}
+
+.venue-number {
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.free-badge {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    background-color: #28a745;
+    color: white;
+    border-radius: 50%;
+    width: 15px;
+    height: 15px;
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border: 1px solid white;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.card-header.bg-success {
+    background-color: #28a745 !important;
+}
+
+.card-header.bg-secondary {
+    background-color: #6c757d !important;
+}
+
+.table-dark th {
+    background-color: #212529 !important;
+    color: #ffffff !important;
+    border-color: #32383e !important;
+}
+
+@media (max-width: 768px) {
+    .venue-grid {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 2px;
+        padding: 8px;
+    }
+    
+    .venue-cell {
+        min-height: 30px;
+    }
+    
+    .venue-number {
+        font-size: 10px;
+    }
+    
+    .free-badge {
+        width: 12px;
+        height: 12px;
+        font-size: 8px;
+    }
+}
+
+@media (max-width: 576px) {
+    .venue-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+</style>
+
+<script>
+let currentDate = '{{ selected_date }}';
+
+function changeDate() {
+    const date = document.getElementById('dateSelect').value;
+    if (date) {
+        window.location.href = `{{ url_for('admin_venues_summary') }}?date=${date}`;
+    }
+}
+
+function setToday() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('dateSelect').value = today;
+    changeDate();
+}
+
+function setPreviousDay() {
+    const currentDate = new Date(document.getElementById('dateSelect').value);
+    currentDate.setDate(currentDate.getDate() - 1);
+    document.getElementById('dateSelect').value = currentDate.toISOString().split('T')[0];
+    changeDate();
+}
+
+function setTomorrow() {
+    const currentDate = new Date(document.getElementById('dateSelect').value);
+    currentDate.setDate(currentDate.getDate() + 1);
+    document.getElementById('dateSelect').value = currentDate.toISOString().split('T')[0];
+    changeDate();
+}
+
+function showScreenshot(imageSrc, venueNumber) {
+    document.getElementById('screenshotImg').src = imageSrc;
+    document.getElementById('screenshotTitle').textContent = `场地 ${venueNumber} 截图`;
+    const modal = new bootstrap.Modal(document.getElementById('screenshotModal'));
+    modal.show();
+}
+
+
+function showToast(type, message) {
+    const toastId = type === 'success' ? 'successToast' : 'errorToast';
+    const messageId = type === 'success' ? 'successMessage' : 'errorMessage';
+    
+    document.getElementById(messageId).textContent = message;
+    const toast = new bootstrap.Toast(document.getElementById(toastId));
+    toast.show();
+}
+
+function deleteVenue(venueId, timeSlot) {
+    if (!confirm('确认删除该场地吗？删除后将无法恢复！')) {
+        return;
+    }
+
+    // 显示加载状态
+    const deleteBtn = event.target.closest('button');
+    const originalContent = deleteBtn.innerHTML;
+    deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    deleteBtn.disabled = true;
+
+    fetch(`/admin/delete-venue/${venueId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 移除表格行
+            const row = document.getElementById(`venue-row-${venueId}`);
+            if (row) {
+                row.remove();
+            }
+            
+            showToast('success', data.message);
+            
+            // 刷新页面以更新场地网格和统计信息
+            setTimeout(() => {
+                window.location.href = `{{ url_for('admin_venues_summary') }}?date=${currentDate}`;
+            }, 1000);
+        } else {
+            showToast('error', data.message || '删除失败');
+            // 恢复按钮状态
+            deleteBtn.innerHTML = originalContent;
+            deleteBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', '网络错误，请重试');
+        // 恢复按钮状态
+        deleteBtn.innerHTML = originalContent;
+        deleteBtn.disabled = false;
+    });
+}
+
+// 初始化日期选择器
+document.addEventListener('DOMContentLoaded', function() {
+    const dateSelect = document.getElementById('dateSelect');
+    const today = new Date();
+    const minDate = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+    const maxDate = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+    
+    dateSelect.min = minDate.toISOString().split('T')[0];
+    dateSelect.max = maxDate.toISOString().split('T')[0];
+});
+</script>
+{% endblock %}

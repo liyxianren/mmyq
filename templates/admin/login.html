@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}管理员登录 - 群组场地报名系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 mx-auto">
+        <div class="card modern-card">
+            <div class="card-header text-center py-4 bg-gradient">
+                <div class="mb-3">
+                    <i class="fas fa-user-shield fa-3x text-warning"></i>
+                </div>
+                <h3 class="mb-0 text-white">管理员登录</h3>
+                <p class="text-white-50 mb-0">管理员专用登录区域</p>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" class="modern-form">
+                    <div class="form-floating mb-4">
+                        <input type="text" class="form-control" id="username" name="username" placeholder="" required>
+                        <label for="username">用户名</label>
+                    </div>
+
+                    <div class="form-floating mb-4">
+                        <input type="password" class="form-control" id="password" name="password" placeholder="" required>
+                        <label for="password">密码</label>
+                    </div>
+
+                    <div class="d-grid mb-4">
+                        <button type="submit" class="btn btn-warning btn-lg text-dark fw-bold">
+                            <i class="fas fa-sign-in-alt me-2"></i>管理员登录
+                        </button>
+                    </div>
+                </form>
+
+                <div class="text-center mb-4">
+                    <p class="mb-0"><a href="{{ url_for('login') }}" class="text-muted text-decoration-none"><i class="fas fa-arrow-left me-1"></i>返回用户登录</a></p>
+                </div>
+
+                <div class="alert alert-light border-warning">
+                    <div class="d-flex">
+                        <i class="fas fa-key text-warning me-3 mt-1"></i>
+                        <div>
+                            <strong class="text-warning">默认管理员账户：</strong><br>
+                            <code class="text-dark">用户名：admin</code><br>
+                            <code class="text-dark">密码：admin123</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

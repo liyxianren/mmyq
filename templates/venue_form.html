@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}场地报名 - 群组场地报名系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <div class="card modern-card">
+            <div class="card-header text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-calendar-plus fa-3x text-primary"></i>
+                </div>
+                <h3 class="mb-2">场地信息收集</h3>
+                <div class="alert alert-info border-0 bg-light-info d-inline-block mb-0">
+                    <i class="fas fa-lightbulb text-info me-2"></i>
+                    <small class="text-info"><strong>提示：</strong>每个场地可以选择不同的时间段，每个场地可带一位同伴</small>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" enctype="multipart/form-data" id="venueForm" class="modern-form">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-floating mb-4">
+                                <input type="date" class="form-control" id="venue_date" name="venue_date" 
+                                       value="{{ default_date }}" placeholder="" required onchange="updateAllVenueAvailability()">
+                                <label for="venue_date" class="required">场地日期</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating mb-4">
+                                <input type="text" class="form-control" id="registration_name" name="registration_name" placeholder="" required>
+                                <label for="registration_name" class="required">报名名称</label>
+                                <div class="form-text">
+                                    <i class="fas fa-user"></i>您的报名显示名称
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0">场地列表</h5>
+                            <div>
+                                <span class="badge bg-secondary" id="venueCount">0 个场地</span>
+                                <button type="button" class="btn btn-primary btn-sm ms-2" onclick="addVenue()">
+                                    <i class="fas fa-plus"></i> 添加场地
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="venuesContainer">
+                            <div class="text-center text-muted py-4" id="emptyMessage">
+                                <i class="fas fa-info-circle"></i>
+                                <p class="mb-0">点击"添加场地"开始添加您要报名的场地</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                            提交报名
+                        </button>
+                    </div>
+                </form>
+
+                <div class="text-center mt-3">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let venueIndex = 0;
+const timeSlots = [
+    {% for slot_key, slot_name in time_slots %}
+        { key: '{{ slot_key }}', name: '{{ slot_name }}' }{{ ',' if not loop.last }}
+    {% endfor %}
+];
+
+function addVenue() {
+
+    const container = document.getElementById('venuesContainer');
+    const emptyMessage = document.getElementById('emptyMessage');
+    
+    if (emptyMessage) {
+        emptyMessage.style.display = 'none';
+    }
+
+    const venueHtml = `
+        <div class="card mb-4 venue-item" id="venue-${venueIndex}">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-map-marker-alt me-2"></i>场地 #${venueIndex + 1}</h6>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeVenue(${venueIndex})">
+                        <i class="fas fa-times me-1"></i> 移除
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-floating mb-3">
+                            <select class="form-select time-slot-select" name="venues[${venueIndex}][time_slot]" required>
+                                <option value="" selected disabled>请选择时间段</option>
+                                ${timeSlots.map(slot => `<option value="${slot.key}">${slot.name}</option>`).join('')}
+                            </select>
+                            <label class="required">时间段</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-floating mb-3">
+                            <input type="number" class="form-control venue-number-input" 
+                                   name="venues[${venueIndex}][number]" 
+                                   placeholder="" min="1" max="24" required>
+                            <label class="required">场地号</label>
+                            <div class="form-text">
+                                <i class="fas fa-hashtag"></i>请输入场地号码(1-24)
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-floating mb-3">
+                            <input type="text" class="form-control" name="venues[${venueIndex}][plus_one_name]" 
+                                   placeholder="">
+                            <label>+1 同伴姓名（可选）</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label required">
+                        <i class="fas fa-camera me-2"></i>场地截图
+                    </label>
+                    <input type="file" class="form-control" name="venues[${venueIndex}][screenshot]" 
+                           accept="image/png,image/jpeg,image/jpg,image/gif" required>
+                    <div class="form-text">
+                        <i class="fas fa-info-circle"></i>必须上传场地截图，支持 PNG, JPG, JPEG, GIF 格式，最大16MB
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', venueHtml);
+    venueIndex++;
+    updateVenueCount();
+    updateSubmitButton();
+}
+
+function removeVenue(index) {
+    const venueElement = document.getElementById(`venue-${index}`);
+    if (venueElement) {
+        venueElement.remove();
+        updateVenueCount();
+        updateSubmitButton();
+        
+        // Show empty message if no venues left
+        const remainingVenues = document.querySelectorAll('.venue-item');
+        if (remainingVenues.length === 0) {
+            document.getElementById('emptyMessage').style.display = 'block';
+        }
+    }
+}
+
+
+function updateVenueCount() {
+    const venueItems = document.querySelectorAll('.venue-item');
+    const count = venueItems.length;
+    const countBadge = document.getElementById('venueCount');
+    
+    countBadge.textContent = `${count} 个场地`;
+    
+    if (count >= {{ config.FREE_VENUE_COUNT }}) {
+        countBadge.className = 'badge bg-success';
+    } else {
+        countBadge.className = 'badge bg-secondary';
+    }
+}
+
+function updateSubmitButton() {
+    const submitBtn = document.getElementById('submitBtn');
+    const venueItems = document.querySelectorAll('.venue-item');
+    const count = venueItems.length;
+    
+    // Check if form is valid
+    const isValid = count > 0 && document.getElementById('registration_name').value.trim() !== '';
+    
+    submitBtn.disabled = !isValid;
+    
+    if (isValid) {
+        if (count >= {{ config.FREE_VENUE_COUNT }}) {
+            submitBtn.innerHTML = `提交报名 <span class="badge bg-success ms-1">免单</span>`;
+        } else {
+            submitBtn.textContent = '提交报名';
+        }
+    } else {
+        submitBtn.textContent = '提交报名';
+    }
+}
+
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Set minimum date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('venue_date').min = today;
+    
+    // Add event listener to registration name field
+    document.getElementById('registration_name').addEventListener('input', updateSubmitButton);
+    
+    // Add one venue by default
+    addVenue();
+});
+
+// Form validation before submit
+document.getElementById('venueForm').addEventListener('submit', function(e) {
+    const venueItems = document.querySelectorAll('.venue-item');
+    
+    if (venueItems.length === 0) {
+        e.preventDefault();
+        alert('请至少添加一个场地！');
+        return false;
+    }
+    
+    // Basic validation for required fields
+    let hasError = false;
+    venueItems.forEach((item, index) => {
+        const timeSlot = item.querySelector('.time-slot-select').value;
+        const venueNumber = item.querySelector('.venue-number-input').value;
+        const screenshot = item.querySelector('input[type="file"]').files[0];
+        
+        if (!timeSlot || !venueNumber || !screenshot) {
+            hasError = true;
+            alert('请填写所有必填项并上传场地截图！');
+        }
+    });
+    
+    if (hasError) {
+        e.preventDefault();
+        return false;
+    }
+});
+</script>
+{% endblock %}

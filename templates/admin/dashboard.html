@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+
+{% block title %}管理员面板 - 群组场地报名系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- 页面头部 -->
+        <div class="text-center mb-5">
+            <div class="mb-3">
+                <i class="fas fa-tachometer-alt fa-4x text-primary"></i>
+            </div>
+            <h2 class="mb-2">管理员控制面板</h2>
+            <p class="text-muted">系统概览和快速管理工具</p>
+        </div>
+        
+        <!-- 统计概览 -->
+        <div class="row mb-5">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card stats-card bg-primary animate-fadeIn">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-0">{{ user_stats.total }}</h3>
+                                <p class="mb-0 opacity-75">总用户数</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-users fa-3x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card stats-card bg-warning animate-fadeIn">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-0">{{ user_stats.pending }}</h3>
+                                <p class="mb-0 opacity-75">待审核</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-clock fa-3x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card stats-card bg-success animate-fadeIn">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-0">{{ user_stats.approved }}</h3>
+                                <p class="mb-0 opacity-75">已通过</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-check-circle fa-3x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="card stats-card bg-danger animate-fadeIn">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-0">{{ user_stats.rejected }}</h3>
+                                <p class="mb-0 opacity-75">已拒绝</p>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-times-circle fa-3x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快速操作 -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="card modern-card">
+                    <div class="card-header text-center py-4">
+                        <h4 class="mb-0">
+                            <i class="fas fa-bolt text-warning me-2"></i>快速操作
+                        </h4>
+                        <p class="text-muted mb-0">常用管理功能快速入口</p>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="row g-4">
+                            <div class="col-lg-3 col-md-6">
+                                <a href="{{ url_for('admin_users') }}" class="quick-action-btn text-decoration-none">
+                                    <i class="fas fa-users text-primary"></i>
+                                    <span class="fw-bold">用户管理</span>
+                                    <small class="text-muted">管理用户账户</small>
+                                </a>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <a href="{{ url_for('admin_venues_summary') }}" class="quick-action-btn text-decoration-none">
+                                    <i class="fas fa-calendar-alt text-success"></i>
+                                    <span class="fw-bold">场地汇总</span>
+                                    <small class="text-muted">查看场地统计</small>
+                                </a>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <a href="{{ url_for('admin_pending_submissions') }}" class="quick-action-btn text-decoration-none position-relative">
+                                    <i class="fas fa-clock text-warning"></i>
+                                    <span class="fw-bold">待审核场地</span>
+                                    <small class="text-muted">审核新提交</small>
+                                    {% if pending_submissions_count > 0 %}
+                                        <span class="badge bg-danger">{{ pending_submissions_count }}</span>
+                                    {% endif %}
+                                </a>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <a href="{{ url_for('admin_venues_summary', date=today) }}" class="quick-action-btn text-decoration-none">
+                                    <i class="fas fa-calendar-day text-info"></i>
+                                    <span class="fw-bold">今日场地</span>
+                                    <small class="text-muted">今天的预订</small>
+                                </a>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <a href="{{ url_for('admin_venue_exchange') }}" class="quick-action-btn text-decoration-none">
+                                    <i class="fas fa-exchange-alt text-warning"></i>
+                                    <span class="fw-bold">场地交换</span>
+                                    <small class="text-muted">管理场地交换</small>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 待审核用户 -->
+        {% if pending_users %}
+        <div class="card modern-card mb-5">
+            <div class="card-header bg-gradient text-center py-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="mb-0 text-white">
+                            <i class="fas fa-user-clock me-2"></i>待审核用户
+                        </h4>
+                        <small class="text-white-50">共 {{ pending_users|length }} 个用户等待审核</small>
+                    </div>
+                    <a href="{{ url_for('admin_users', status='pending') }}" class="btn btn-light btn-sm">
+                        <i class="fas fa-list me-1"></i>查看全部
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-users me-2"></i>群组</th>
+                                <th><i class="fas fa-user me-2"></i>群名称</th>
+                                <th><i class="fas fa-calendar me-2"></i>注册时间</th>
+                                <th><i class="fas fa-cogs me-2"></i>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in pending_users[:5] %}
+                                <tr>
+                                    <td><span class="badge bg-secondary rounded-pill">{{ user.group_type }}</span></td>
+                                    <td class="fw-bold">{{ user.group_name }}</td>
+                                    <td class="text-muted">{{ user.created_at|datetime }}</td>
+                                    <td>
+                                        <div class="btn-group-modern">
+                                            <a href="{{ url_for('approve_user', user_id=user.id) }}" 
+                                               class="btn btn-success btn-sm"
+                                               onclick="return confirm('确认批准用户 {{ user.group_name }} 吗？')">
+                                                <i class="fas fa-check me-1"></i>批准
+                                            </a>
+                                            <a href="{{ url_for('reject_user', user_id=user.id) }}" 
+                                               class="btn btn-danger btn-sm"
+                                               onclick="return confirm('确认拒绝用户 {{ user.group_name }} 吗？')">
+                                                <i class="fas fa-times me-1"></i>拒绝
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if pending_users|length > 5 %}
+                    <div class="text-center py-4">
+                        <a href="{{ url_for('admin_users', status='pending') }}" class="btn btn-warning">
+                            <i class="fas fa-arrow-right me-2"></i>查看全部 {{ pending_users|length }} 个待审核用户
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 最近场地报名 -->
+        <div class="card modern-card">
+            <div class="card-header bg-gradient text-center py-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="mb-0 text-white">
+                            <i class="fas fa-calendar-check me-2"></i>最近场地报名
+                        </h4>
+                        <small class="text-white-50">最新的场地预订信息</small>
+                    </div>
+                    <a href="{{ url_for('admin_venues_summary') }}" class="btn btn-light btn-sm">
+                        <i class="fas fa-chart-bar me-1"></i>查看汇总
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                {% if recent_groups %}
+                    <div class="row g-4">
+                        {% for group in recent_groups %}
+                            <div class="col-lg-4 col-md-6">
+                                <div class="card h-100 border-0 shadow-sm modern-card">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <h6 class="mb-0 text-primary fw-bold">
+                                                <i class="fas fa-calendar-day me-1"></i>
+                                                {{ group.venue_date|date_format }}
+                                            </h6>
+                                            {% if group.is_free_venue %}
+                                                <span class="badge bg-success rounded-pill">
+                                                    <i class="fas fa-gift me-1"></i>免单
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block">
+                                                <i class="fas fa-clock me-1"></i>{{ dict(time_slots)[group.time_slot] }}
+                                            </small>
+                                            <small class="text-muted">
+                                                <i class="fas fa-map-marker-alt me-1"></i>{{ group.get_venue_count() }}个场地
+                                            </small>
+                                        </div>
+                                        
+                                        <div class="mb-2">
+                                            <strong class="text-dark">报名：</strong>
+                                            <span>{{ group.registration_name }}</span>
+                                            {% if group.plus_one_name %}
+                                                <small class="text-success">(+{{ group.plus_one_name }})</small>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <strong class="text-dark">群组：</strong>
+                                            <span>{{ getattr(group, 'group_name', '') }}</span>
+                                            <span class="badge bg-secondary rounded-pill ms-1">{{ getattr(group, 'group_type', '') }}</span>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <strong class="text-dark">场地：</strong>
+                                            <div class="mt-1">
+                                                {% for venue in group.venues|sort(attribute='venue_number') %}
+                                                    <span class="badge bg-primary rounded-pill me-1">{{ venue.venue_number }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="d-flex justify-content-between align-items-center mt-auto">
+                                            <small class="text-muted">
+                                                <i class="fas fa-clock me-1"></i>{{ group.upload_time|datetime }}
+                                            </small>
+                                            <a href="{{ url_for('admin_venue_details', group_id=group.id) }}" 
+                                               class="btn btn-primary btn-sm">
+                                                <i class="fas fa-eye me-1"></i>查看详情
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">暂无场地报名信息</h5>
+                        <p class="text-muted">当有用户提交场地报名时，会在这里显示</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

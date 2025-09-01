@@ -1,0 +1,22 @@
+Instructions
+
+Command to connect to your MySQL
+
+mysqlsh --sql --host=${PORT_FORWARDED_HOSTNAME} --port=${DATABASE_PORT_FORWARDED_PORT} --user=root --password=ToN9sfU57neVx8lm0OzAFP43r2Kp1dZ6 --schema=zeabur
+MySQL username
+
+root
+MySQL password
+
+ToN9sfU57neVx8lm0OzAFP43r2Kp1dZ6
+MySQL database
+
+zeabur
+
+
+MySQL host
+
+hkg1.clusters.zeabur.com
+MySQL port
+
+32360

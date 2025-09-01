@@ -1,0 +1,517 @@
+{% extends "base.html" %}
+
+{% block title %}场地迁移管理 - 群组场地报名系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- 页面头部 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2><i class="fas fa-arrows-alt text-primary me-2"></i>场地迁移管理</h2>
+                <p class="text-muted mb-0">管理员可以将任意场地迁移到指定的位置，支持跨日期和时间段迁移</p>
+            </div>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>返回面板
+            </a>
+        </div>
+
+        <!-- 迁移操作区域 -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card modern-card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-map-marker-alt me-2"></i>选择要迁移的场地</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="selected-venue-info" class="venue-info-display">
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-mouse-pointer fa-3x mb-3"></i>
+                                <p>请从下方列表中点击选择一个场地</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card modern-card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-bullseye me-2"></i>设置目标位置</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="migration-form" class="modern-form">
+                            <div class="form-floating mb-3">
+                                <input type="date" class="form-control" id="target-date" name="target_date" required>
+                                <label for="target-date">目标日期</label>
+                            </div>
+                            
+                            <div class="form-floating mb-3">
+                                <select class="form-select" id="target-time-slot" name="target_time_slot" required>
+                                    <option value="">请选择时间段</option>
+                                    {% for slot_key, slot_name in time_slots %}
+                                        <option value="{{ slot_key }}">{{ slot_name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <label for="target-time-slot">目标时间段</label>
+                            </div>
+                            
+                            <div class="form-floating mb-3">
+                                <input type="number" class="form-control" id="target-venue-number" name="target_venue_number" 
+                                       min="1" max="24" required>
+                                <label for="target-venue-number">目标场地号 (1-24)</label>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作按钮区域 -->
+        <div class="text-center mb-4">
+            <button id="migrateBtn" class="btn btn-warning btn-lg" disabled>
+                <i class="fas fa-arrows-alt me-2"></i>执行场地迁移
+            </button>
+            <button id="clearSelection" class="btn btn-outline-secondary btn-lg ms-2">
+                <i class="fas fa-times me-2"></i>清空选择
+            </button>
+        </div>
+
+        <!-- 操作结果显示区域 -->
+        <div id="migrate-result" style="display: none;"></div>
+
+        <!-- 场地列表 -->
+        <div class="card modern-card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>可迁移场地列表</h5>
+                    <small class="text-muted">点击场地进行选择，已选择的场地会高亮显示</small>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if submissions %}
+                    {% for submission in submissions %}
+                        <div class="submission-group mb-4">
+                            <div class="submission-header">
+                                <h6 class="text-primary fw-bold">
+                                    <i class="fas fa-calendar me-2"></i>{{ submission.venue_date|date_format }}
+                                    - {{ submission.registration_name }}
+                                    {% if submission.is_free_submission %}
+                                        <span class="badge bg-success ms-2">免单</span>
+                                    {% endif %}
+                                </h6>
+                                <small class="text-muted">
+                                    {{ submission.group_name }} ({{ submission.group_type }})
+                                </small>
+                            </div>
+                            
+                            <div class="venues-grid mt-3">
+                                {% for venue in submission.venues %}
+                                    <div class="venue-card" 
+                                         data-venue-id="{{ venue.id }}"
+                                         data-venue-number="{{ venue.venue_number }}"
+                                         data-time-slot="{{ venue.time_slot }}"
+                                         data-submission-id="{{ submission.id }}">
+                                        <div class="venue-number">{{ venue.venue_number }}</div>
+                                        <div class="venue-time">{{ dict(time_slots)[venue.time_slot] }}</div>
+                                        {% if venue.plus_one_name %}
+                                            <div class="venue-plus-one">+{{ venue.plus_one_name }}</div>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">暂无可交换的场地</h5>
+                        <p class="text-muted">当有已审核通过的场地提交时，会在这里显示</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.venue-info-display {
+    min-height: 150px;
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+}
+
+.venue-info-content {
+    padding: var(--space-4);
+}
+
+.venue-info-content h6 {
+    color: var(--primary-600);
+    margin-bottom: var(--space-3);
+}
+
+.venue-info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
+    padding: var(--space-2);
+    background: var(--card-bg);
+    border-radius: var(--radius-sm);
+}
+
+.submission-group {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    background: var(--card-bg);
+}
+
+.submission-header {
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: var(--space-3);
+}
+
+.venues-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: var(--space-3);
+}
+
+.venue-card {
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--card-bg);
+    position: relative;
+}
+
+.venue-card:hover {
+    border-color: var(--primary-400);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.venue-card.selected-venue {
+    border-color: var(--primary-600) !important;
+    background: rgba(79, 70, 229, 0.15) !important;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+    transform: translateY(-2px) scale(1.02) !important;
+}
+
+.venue-card.selected-venue::before {
+    content: '✓';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    background: var(--primary-600);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: bold;
+    box-shadow: var(--shadow-md);
+}
+
+.venue-number {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--primary-600);
+    margin-bottom: var(--space-1);
+}
+
+.venue-time {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-1);
+}
+
+.venue-plus-one {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .venue-card {
+    background: var(--gray-800);
+    border-color: var(--gray-600);
+}
+
+[data-theme="dark"] .venue-card:hover {
+    border-color: var(--primary-500);
+}
+
+[data-theme="dark"] .venue-info-display {
+    background: var(--gray-800);
+}
+
+[data-theme="dark"] .submission-group {
+    background: var(--gray-800);
+    border-color: var(--gray-600);
+}
+
+[data-theme="dark"] .venue-info-item {
+    background: var(--gray-700);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .venues-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: var(--space-2);
+    }
+    
+    .venue-card {
+        padding: var(--space-2);
+    }
+    
+    .venue-number {
+        font-size: 1rem;
+    }
+}
+</style>
+
+<script>
+let selectedVenue = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 设置默认日期为今天
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('target-date').value = today;
+    
+    // 添加场地卡片点击事件
+    document.querySelectorAll('.venue-card').forEach(card => {
+        card.addEventListener('click', function() {
+            selectVenue(this);
+        });
+    });
+    
+    // 迁移按钮事件
+    document.getElementById('migrateBtn').addEventListener('click', function() {
+        if (selectedVenue && isFormValid()) {
+            performMigration();
+        }
+    });
+    
+    // 清空选择按钮事件
+    document.getElementById('clearSelection').addEventListener('click', function() {
+        clearSelection();
+    });
+    
+    // 表单字段变化事件
+    ['target-date', 'target-time-slot', 'target-venue-number'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updateMigrateButton);
+        document.getElementById(id).addEventListener('change', updateMigrateButton);
+    });
+});
+
+function selectVenue(venueCard) {
+    const venueId = parseInt(venueCard.dataset.venueId);
+    
+    // 如果已经选择了这个场地，则取消选择
+    if (selectedVenue && selectedVenue.id === venueId) {
+        clearVenue();
+        return;
+    }
+    
+    // 清除之前的选择
+    if (selectedVenue) {
+        selectedVenue.element.classList.remove('selected-venue');
+    }
+    
+    // 选择新场地
+    selectedVenue = {
+        id: venueId,
+        number: venueCard.dataset.venueNumber,
+        timeSlot: venueCard.dataset.timeSlot,
+        element: venueCard
+    };
+    
+    venueCard.classList.add('selected-venue');
+    updateSelectedVenueDisplay();
+    updateMigrateButton();
+}
+
+function clearVenue() {
+    if (selectedVenue) {
+        selectedVenue.element.classList.remove('selected-venue');
+        selectedVenue = null;
+        updateSelectedVenueDisplay();
+        updateMigrateButton();
+    }
+}
+
+function clearSelection() {
+    clearVenue();
+    document.getElementById('migration-form').reset();
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('target-date').value = today;
+    hideMigrateResult();
+    updateMigrateButton();
+}
+
+function updateSelectedVenueDisplay() {
+    const container = document.getElementById('selected-venue-info');
+    if (selectedVenue) {
+        // 获取详细信息并显示
+        fetchVenueInfo(selectedVenue.id, function(venueInfo) {
+            container.innerHTML = `
+                <div class="venue-info-content">
+                    <h6><i class="fas fa-map-marker-alt me-2"></i>当前场地信息</h6>
+                    <div class="venue-info-item">
+                        <span>场地号码:</span>
+                        <strong>${venueInfo.venue_number}号</strong>
+                    </div>
+                    <div class="venue-info-item">
+                        <span>时间段:</span>
+                        <strong>${venueInfo.time_slot_name}</strong>
+                    </div>
+                    <div class="venue-info-item">
+                        <span>日期:</span>
+                        <strong>${venueInfo.venue_date}</strong>
+                    </div>
+                    <div class="venue-info-item">
+                        <span>报名人:</span>
+                        <strong>${venueInfo.registration_name}</strong>
+                    </div>
+                    <div class="venue-info-item">
+                        <span>群组:</span>
+                        <strong>${venueInfo.group_name} (${venueInfo.group_type})</strong>
+                    </div>
+                    ${venueInfo.plus_one_name ? `
+                    <div class="venue-info-item">
+                        <span>+1:</span>
+                        <strong>${venueInfo.plus_one_name}</strong>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+    } else {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-mouse-pointer fa-3x mb-3"></i>
+                <p>请从下方列表中点击选择一个场地</p>
+            </div>
+        `;
+    }
+}
+
+function isFormValid() {
+    const targetDate = document.getElementById('target-date').value;
+    const targetTimeSlot = document.getElementById('target-time-slot').value;
+    const targetVenueNumber = document.getElementById('target-venue-number').value;
+    
+    return targetDate && targetTimeSlot && targetVenueNumber && 
+           parseInt(targetVenueNumber) >= 1 && parseInt(targetVenueNumber) <= 24;
+}
+
+function updateMigrateButton() {
+    const migrateBtn = document.getElementById('migrateBtn');
+    if (selectedVenue && isFormValid()) {
+        migrateBtn.disabled = false;
+        migrateBtn.classList.remove('btn-outline-warning');
+        migrateBtn.classList.add('btn-warning');
+    } else {
+        migrateBtn.disabled = true;
+        migrateBtn.classList.remove('btn-warning');
+        migrateBtn.classList.add('btn-outline-warning');
+    }
+}
+
+function fetchVenueInfo(venueId, callback) {
+    fetch(`/admin/get-venue-info/${venueId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                callback(data.venue);
+            } else {
+                console.error('获取场地信息失败:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('网络错误:', error);
+        });
+}
+
+function performMigration() {
+    if (!selectedVenue || !isFormValid()) {
+        return;
+    }
+    
+    const migrateBtn = document.getElementById('migrateBtn');
+    const originalText = migrateBtn.innerHTML;
+    migrateBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>迁移中...';
+    migrateBtn.disabled = true;
+    
+    const targetDate = document.getElementById('target-date').value;
+    const targetTimeSlot = document.getElementById('target-time-slot').value;
+    const targetVenueNumber = document.getElementById('target-venue-number').value;
+    
+    fetch('/admin/migrate-venue', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            venue_id: selectedVenue.id,
+            new_venue_number: parseInt(targetVenueNumber),
+            new_time_slot: targetTimeSlot,
+            new_venue_date: targetDate
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        showMigrateResult(data);
+        if (data.success) {
+            // 迁移成功，刷新页面以显示最新数据
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        }
+    })
+    .catch(error => {
+        showMigrateResult({
+            success: false,
+            message: '网络错误：' + error.message
+        });
+    })
+    .finally(() => {
+        migrateBtn.innerHTML = originalText;
+        updateMigrateButton();
+    });
+}
+
+function showMigrateResult(result) {
+    const resultDiv = document.getElementById('migrate-result');
+    const alertClass = result.success ? 'alert-success' : 'alert-danger';
+    const icon = result.success ? 'fa-check-circle' : 'fa-exclamation-circle';
+    
+    resultDiv.innerHTML = `
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            <i class="fas ${icon} me-2"></i>
+            ${result.message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    resultDiv.style.display = 'block';
+    
+    // 滚动到结果区域
+    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function hideMigrateResult() {
+    document.getElementById('migrate-result').style.display = 'none';
+}
+</script>
+{% endblock %}
