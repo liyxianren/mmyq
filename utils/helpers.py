@@ -15,11 +15,21 @@ def save_uploaded_file(file):
             file_ext = filename.rsplit('.', 1)[1].lower()
             random_name = secrets.token_hex(16) + '.' + file_ext
             
-            # Ensure upload directory exists
-            os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
+            # Ensure upload directory exists with proper permissions
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            os.makedirs(upload_folder, exist_ok=True)
             
-            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], random_name)
+            # Set directory permissions (especially for /image on Linux)
+            if os.name == 'posix':  # Linux/Unix
+                os.chmod(upload_folder, 0o755)
+            
+            file_path = os.path.join(upload_folder, random_name)
             file.save(file_path)
+            
+            # Set file permissions (readable by web server)
+            if os.name == 'posix':  # Linux/Unix
+                os.chmod(file_path, 0o644)
+                
             return random_name
     return None
 

@@ -682,9 +682,76 @@ def create_app(config_name=None):
     def uploaded_file(filename):
         """服务图片文件，支持云端持久化存储"""
         import os
-        from flask import send_from_directory
+        from flask import send_from_directory, abort
+        from werkzeug.utils import secure_filename
         
-        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+        # 安全检查文件名
+        filename = secure_filename(filename)
+        if not filename:
+            abort(404)
+        
+        upload_folder = app.config['UPLOAD_FOLDER']
+        file_path = os.path.join(upload_folder, filename)
+        
+        # 检查文件是否存在
+        if not os.path.exists(file_path):
+            abort(404)
+        
+        # 检查文件权限和路径安全性
+        if not os.path.isfile(file_path):
+            abort(404)
+            
+        try:
+            return send_from_directory(upload_folder, filename)
+        except Exception as e:
+            print(f"Error serving file {filename}: {e}")
+            # 如果send_from_directory失败，尝试直接读取文件
+            try:
+                from flask import Response
+                with open(file_path, 'rb') as f:
+                    file_data = f.read()
+                
+                # 根据文件扩展名设置MIME类型
+                import mimetypes
+                mime_type, _ = mimetypes.guess_type(filename)
+                if not mime_type:
+                    mime_type = 'application/octet-stream'
+                
+                return Response(file_data, mimetype=mime_type)
+            except Exception as e2:
+                print(f"Error reading file directly {filename}: {e2}")
+                abort(404)
+    
+    # Debug route for image path testing
+    @app.route('/debug/image-config')
+    def debug_image_config():
+        """调试图片配置信息（仅开发用）"""
+        import os
+        upload_folder = app.config['UPLOAD_FOLDER']
+        
+        debug_info = {
+            'upload_folder': upload_folder,
+            'folder_exists': os.path.exists(upload_folder),
+            'folder_is_dir': os.path.isdir(upload_folder) if os.path.exists(upload_folder) else False,
+            'folder_permissions': oct(os.stat(upload_folder).st_mode)[-3:] if os.path.exists(upload_folder) else None,
+            'files_in_folder': []
+        }
+        
+        if os.path.exists(upload_folder) and os.path.isdir(upload_folder):
+            try:
+                files = os.listdir(upload_folder)
+                for f in files[:10]:  # 只显示前10个文件
+                    file_path = os.path.join(upload_folder, f)
+                    if os.path.isfile(file_path):
+                        debug_info['files_in_folder'].append({
+                            'name': f,
+                            'size': os.path.getsize(file_path),
+                            'permissions': oct(os.stat(file_path).st_mode)[-3:]
+                        })
+            except Exception as e:
+                debug_info['folder_error'] = str(e)
+        
+        return jsonify(debug_info)
     
     # 新的场地交换API
     @app.route('/admin/venue-exchange-data')
