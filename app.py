@@ -398,29 +398,97 @@ def create_app(config_name=None):
         
         return redirect(url_for('admin_users'))
     
+    @app.route('/admin/debug')
+    def admin_debug():
+        """Debug route to check system status"""
+        if 'admin_id' not in session:
+            return redirect(url_for('admin_login'))
+        
+        debug_info = {}
+        try:
+            from utils.database import execute_query
+            from models.venue import VenueManager
+            from datetime import date
+            
+            # Test database
+            test_result = execute_query('SELECT 1 as test', fetch='one')
+            debug_info['database'] = f"Connected: {test_result}"
+            
+            # Test config
+            debug_info['time_slots'] = app.config.get('TIME_SLOTS', 'Not found')
+            
+            # Test VenueManager
+            today = date.today()
+            summary = VenueManager.get_summary_by_date(today)
+            debug_info['summary'] = f"Type: {type(summary)}, Keys: {list(summary.keys())}"
+            
+            # Test template
+            debug_info['template_vars'] = 'All OK'
+            
+        except Exception as e:
+            debug_info['error'] = f"Error: {e}"
+            import traceback
+            debug_info['traceback'] = traceback.format_exc()
+        
+        return f"<pre>Debug Info:\n{debug_info}</pre>"
+    
     @app.route('/admin/venues-summary')
     def admin_venues_summary():
         if 'admin_id' not in session:
             return redirect(url_for('admin_login'))
         
-        # Get date from query parameter, default to today
-        selected_date = request.args.get('date')
-        if selected_date:
-            try:
-                date_obj = datetime.strptime(selected_date, '%Y-%m-%d').date()
-            except ValueError:
+        try:
+            # Get date from query parameter, default to today
+            selected_date = request.args.get('date')
+            print(f"Requested date parameter: {selected_date}")
+            
+            if selected_date:
+                try:
+                    date_obj = datetime.strptime(selected_date, '%Y-%m-%d').date()
+                except ValueError as ve:
+                    print(f"Date parsing error: {ve}")
+                    date_obj = date.today()
+            else:
                 date_obj = date.today()
-        else:
-            date_obj = date.today()
-        
-        summary = VenueManager.get_summary_by_date(date_obj)
-        pending_count = len(VenueSubmission.get_pending_submissions())
-        
-        return render_template('admin/venues_summary.html', 
-                             summary=summary, 
-                             selected_date=date_obj,
-                             pending_count=pending_count,
-                             time_slots=app.config['TIME_SLOTS'])
+            
+            print(f"Processing venues summary for date: {date_obj}")
+            
+            # Get summary data with error handling
+            try:
+                summary = VenueManager.get_summary_by_date(date_obj)
+                print(f"Summary data retrieved successfully, keys: {list(summary.keys())}")
+            except Exception as e:
+                print(f"Error getting venue summary: {e}")
+                import traceback
+                traceback.print_exc()
+                summary = {}
+            
+            # Get pending count with error handling
+            try:
+                pending_submissions = VenueSubmission.get_pending_submissions()
+                pending_count = len(pending_submissions) if pending_submissions else 0
+                print(f"Pending submissions count: {pending_count}")
+            except Exception as e:
+                print(f"Error getting pending submissions: {e}")
+                import traceback
+                traceback.print_exc()
+                pending_count = 0
+            
+            # Verify template variables before rendering
+            print(f"Template variables: summary={type(summary)}, date={date_obj}, count={pending_count}")
+            
+            return render_template('admin/venues_summary.html', 
+                                 summary=summary, 
+                                 selected_date=date_obj,
+                                 pending_count=pending_count,
+                                 time_slots=app.config['TIME_SLOTS'])
+                                 
+        except Exception as e:
+            print(f"Critical error in admin_venues_summary: {e}")
+            import traceback
+            traceback.print_exc()
+            flash('加载场地汇总时出错，请稍后重试', 'error')
+            return redirect(url_for('admin_dashboard'))
     
     @app.route('/admin/venue-details/<int:submission_id>')
     def admin_venue_details(submission_id):
