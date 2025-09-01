@@ -120,10 +120,10 @@
                                 </div>
                                 
                                 {% if venue.venue_screenshot %}
-                                    <img src="{{ url_for('static', filename='uploads/' + venue.venue_screenshot) }}" 
+                                    <img src="{{ image_url(venue.venue_screenshot) }}" 
                                          class="card-img-top venue-screenshot" 
                                          alt="场地{{ venue.venue_number }}截图"
-                                         onclick="showScreenshot('{{ url_for('static', filename='uploads/' + venue.venue_screenshot) }}', {{ venue.venue_number }})">
+                                         onclick="showScreenshot('{{ image_url(venue.venue_screenshot) }}', {{ venue.venue_number }})">
                                 {% else %}
                                     <div class="card-img-top bg-light d-flex align-items-center justify-content-center" 
                                          style="height: 200px;">

@@ -50,7 +50,7 @@
                                             <td>
                                                 {% if venue.venue_screenshot %}
                                                     <button class="btn btn-outline-primary btn-sm" 
-                                                            onclick="showScreenshot('{{ url_for('static', filename='uploads/' + venue.venue_screenshot) }}', {{ venue.venue_number }})">
+                                                            onclick="showScreenshot('{{ image_url(venue.venue_screenshot) }}', {{ venue.venue_number }})">
                                                         <i class="fas fa-image"></i> 查看
                                                     </button>
                                                 {% else %}

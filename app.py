@@ -41,6 +41,14 @@ def create_app(config_name=None):
                 return dt
         return dt.strftime('%Y年%m月%d日') if dt else ''
     
+    # Template function for image URL
+    @app.template_global('image_url')
+    def image_url(filename):
+        """生成图片URL，兼容云端持久化存储"""
+        if filename:
+            return url_for('uploaded_file', filename=filename)
+        return None
+    
     # Routes
     @app.route('/')
     def index():
@@ -668,6 +676,15 @@ def create_app(config_name=None):
     @app.route('/favicon.ico')
     def favicon():
         return '', 204
+    
+    # Image serving route for persistent storage
+    @app.route('/uploads/<filename>')
+    def uploaded_file(filename):
+        """服务图片文件，支持云端持久化存储"""
+        import os
+        from flask import send_from_directory
+        
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
     
     # 新的场地交换API
     @app.route('/admin/venue-exchange-data')

@@ -12,7 +12,10 @@ class Config:
     MYSQL_PORT = 32360
     
     # File Upload Configuration
-    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
+    # 在云端使用 /image 持久化存储，本地开发时使用 static/uploads
+    # 通过检查环境变量或特定条件来判断是否在云端
+    is_cloud = os.environ.get('PORT') or os.path.exists('/app')  # Zeabur cloud indicators
+    UPLOAD_FOLDER = '/image' if is_cloud and os.path.exists('/image') else os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
     
