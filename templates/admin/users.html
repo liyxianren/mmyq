@@ -136,32 +136,28 @@
                                             <td>
                                                 <div class="btn-group btn-group-sm">
                                                     {% if user.status == 'pending' %}
-                                                        <a href="{{ url_for('approve_user', user_id=user.id) }}" 
-                                                           class="btn btn-success btn-sm"
-                                                           onclick="return confirm('确认批准用户 {{ user.group_name }} 吗？')"
-                                                           title="批准">
+                                                        <button type="button" class="btn btn-success btn-sm"
+                                                                onclick="confirmUserAction('approve', {{ user.id }}, '{{ user.group_name }}')"
+                                                                title="批准">
                                                             <i class="fas fa-check"></i>
-                                                        </a>
-                                                        <a href="{{ url_for('reject_user', user_id=user.id) }}" 
-                                                           class="btn btn-warning btn-sm"
-                                                           onclick="return confirm('确认拒绝用户 {{ user.group_name }} 吗？')"
-                                                           title="拒绝">
+                                                        </button>
+                                                        <button type="button" class="btn btn-warning btn-sm"
+                                                                onclick="confirmUserAction('reject', {{ user.id }}, '{{ user.group_name }}')"
+                                                                title="拒绝">
                                                             <i class="fas fa-times"></i>
-                                                        </a>
+                                                        </button>
                                                     {% elif user.status == 'rejected' %}
-                                                        <a href="{{ url_for('approve_user', user_id=user.id) }}" 
-                                                           class="btn btn-success btn-sm"
-                                                           onclick="return confirm('确认批准用户 {{ user.group_name }} 吗？')"
-                                                           title="批准">
+                                                        <button type="button" class="btn btn-success btn-sm"
+                                                                onclick="confirmUserAction('approve', {{ user.id }}, '{{ user.group_name }}')"
+                                                                title="批准">
                                                             <i class="fas fa-check"></i>
-                                                        </a>
+                                                        </button>
                                                     {% elif user.status == 'approved' %}
-                                                        <a href="{{ url_for('reject_user', user_id=user.id) }}" 
-                                                           class="btn btn-warning btn-sm"
-                                                           onclick="return confirm('确认拒绝用户 {{ user.group_name }} 吗？')"
-                                                           title="拒绝">
+                                                        <button type="button" class="btn btn-warning btn-sm"
+                                                                onclick="confirmUserAction('reject', {{ user.id }}, '{{ user.group_name }}')"
+                                                                title="拒绝">
                                                             <i class="fas fa-times"></i>
-                                                        </a>
+                                                        </button>
                                                     {% endif %}
                                                     
                                                     <button type="button" class="btn btn-info btn-sm" 
@@ -178,34 +174,6 @@
                                                     </button>
                                                 </div>
 
-                                                <!-- 修改密码模态框 -->
-                                                <div class="modal fade" id="passwordModal{{ user.id }}" tabindex="-1">
-                                                    <div class="modal-dialog">
-                                                        <div class="modal-content">
-                                                            <form method="POST" action="{{ url_for('admin_change_password', user_id=user.id) }}">
-                                                                <div class="modal-header">
-                                                                    <h5 class="modal-title">修改用户密码</h5>
-                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                                </div>
-                                                                <div class="modal-body">
-                                                                    <p>修改用户 <strong>{{ user.group_name }}</strong> 的密码：</p>
-                                                                    <div class="mb-3">
-                                                                        <label for="new_password{{ user.id }}" class="form-label">新密码</label>
-                                                                        <input type="password" class="form-control" 
-                                                                               id="new_password{{ user.id }}" 
-                                                                               name="new_password" 
-                                                                               minlength="6" required>
-                                                                        <div class="form-text">密码长度至少6位</div>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="modal-footer">
-                                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                                                                    <button type="submit" class="btn btn-primary">确认修改</button>
-                                                                </div>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
                                             </td>
                                         </tr>
                                     {% endfor %}
@@ -213,6 +181,41 @@
                             </table>
                         </div>
                     </form>
+                    
+                    <!-- 修改密码模态框 -->
+                    {% for user in users %}
+                        <div class="modal fade" id="passwordModal{{ user.id }}" tabindex="-1" 
+                             aria-labelledby="passwordModalLabel{{ user.id }}" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <form method="POST" action="{{ url_for('admin_change_password', user_id=user.id) }}">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="passwordModalLabel{{ user.id }}">修改用户密码</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>修改用户 <strong>{{ user.group_name }}</strong> 的密码：</p>
+                                            <div class="mb-3">
+                                                <label for="new_password{{ user.id }}" class="form-label">新密码</label>
+                                                <input type="password" class="form-control" 
+                                                       id="new_password{{ user.id }}" 
+                                                       name="new_password" 
+                                                       minlength="6" 
+                                                       placeholder="请输入新密码"
+                                                       required>
+                                                <div class="form-text">密码长度至少6位</div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                                            <button type="submit" class="btn btn-primary">确认修改</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                    
                 {% else %}
                     <div class="text-center py-4">
                         <p class="text-muted">暂无用户数据</p>
@@ -222,6 +225,39 @@
         </div>
     </div>
 </div>
+
+<style>
+/* 确保模态框正确显示 */
+.modal {
+    z-index: 1055 !important;
+}
+
+.modal-backdrop {
+    z-index: 1050 !important;
+}
+
+.modal-dialog {
+    z-index: 1060 !important;
+}
+
+/* 确保模态框内容可以正常交互 */
+.modal-content {
+    background: #fff;
+    border: 1px solid rgba(0,0,0,.2);
+    border-radius: 0.375rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075);
+}
+
+.modal-body input, .modal-body button {
+    pointer-events: auto;
+}
+
+/* 确保表单控件可以获得焦点 */
+.modal input[type="password"] {
+    position: relative;
+    z-index: 1;
+}
+</style>
 
 <script>
 // 全选/取消全选
@@ -304,6 +340,23 @@ function deleteUser(userId, userName) {
         form.appendChild(userIdInput);
         document.body.appendChild(form);
         form.submit();
+    }
+}
+
+// 单个用户操作确认
+function confirmUserAction(action, userId, userName) {
+    const actionNames = {
+        'approve': '批准',
+        'reject': '拒绝'
+    };
+    
+    const actionUrls = {
+        'approve': '{{ url_for("approve_user", user_id=0) }}'.replace('0', userId),
+        'reject': '{{ url_for("reject_user", user_id=0) }}'.replace('0', userId)
+    };
+    
+    if (confirm(`确认${actionNames[action]}用户 ${userName} 吗？`)) {
+        window.location.href = actionUrls[action];
     }
 }
 
