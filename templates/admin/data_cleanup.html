@@ -175,12 +175,13 @@ function previewCleanup() {
     })
     .then(response => response.json())
     .then(data => {
+        console.log('Preview response:', data); // 调试信息
         if (data.success) {
             displayPreview(data);
             previewData = data;
             executeBtn.disabled = false;
         } else {
-            showResult(data.message, 'error');
+            showResult(data.message || '预览失败', 'error');
         }
     })
     .catch(error => {
@@ -241,7 +242,19 @@ function displayPreview(data) {
     const previewResult = document.getElementById('previewResult');
     const previewContent = document.getElementById('previewContent');
     
-    if (data.stats.submissions_to_delete === 0) {
+    // 安全检查 - 确保数据结构存在
+    if (!data.stats) {
+        previewContent.innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                返回数据格式错误，请刷新页面重试
+            </div>
+        `;
+        previewResult.style.display = 'block';
+        return;
+    }
+    
+    if (!data.stats.submissions_to_delete || data.stats.submissions_to_delete === 0) {
         previewContent.innerHTML = `
             <div class="text-center py-4">
                 <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
@@ -266,7 +279,9 @@ function displayPreview(data) {
             <h6><i class="fas fa-list me-2"></i>待清理的提交记录：</h6>
         `;
         
-        data.stats.expired_submissions.forEach(submission => {
+        // 安全检查 expired_submissions 数组
+        const submissions = data.stats.expired_submissions || [];
+        submissions.forEach(submission => {
             html += `
                 <div class="cleanup-item">
                     <h6>${submission.registration_name}</h6>

@@ -23,23 +23,31 @@ class DataCleanup:
             ORDER BY vs.venue_date DESC
         '''
         
-        results = execute_query(query, (cutoff_date,), fetch=True)
-        
-        expired_data = []
-        if results:
-            for row in results:
-                screenshots = []
-                if row[3]:  # screenshots field
-                    screenshots = [s.strip() for s in row[3].split(',') if s.strip()]
-                
-                expired_data.append({
-                    'submission_id': row[0],
-                    'venue_date': row[1], 
-                    'registration_name': row[2],
-                    'screenshots': screenshots
-                })
-        
-        return expired_data
+        try:
+            results = execute_query(query, (cutoff_date,), fetch=True)
+            
+            expired_data = []
+            if results:
+                for row in results:
+                    screenshots = []
+                    if row[3]:  # screenshots field
+                        screenshots = [s.strip() for s in row[3].split(',') if s.strip() and s.strip() != 'None']
+                    
+                    # 转换日期为字符串格式
+                    venue_date_str = str(row[1]) if row[1] else 'Unknown'
+                    
+                    expired_data.append({
+                        'submission_id': row[0],
+                        'venue_date': venue_date_str, 
+                        'registration_name': row[2] or 'Unknown',
+                        'screenshots': screenshots
+                    })
+            
+            return expired_data
+            
+        except Exception as e:
+            print(f"Error in get_expired_submissions: {e}")
+            return []
     
     @staticmethod
     def delete_image_files(screenshot_filenames):
